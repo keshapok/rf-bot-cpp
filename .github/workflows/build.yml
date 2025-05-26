@@ -1,0 +1,29 @@
+name: Build RF Bot to EXE
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup MSVC
+        run: choco install visualstudio2022buildtools --yes
+
+      - name: Compile EXE
+        run: |
+          cd ${{ github.workspace }}
+          cl /EHsc /W4 /nologo /DUNICODE /D_UNICODE main.cpp user32.lib gdi32.lib
+          move main.exe rf-bot.exe
+
+      - name: Upload EXE
+        uses: actions/upload-artifact@v3
+        with:
+          name: rf-bot-exe
+          path: rf-bot.exe
