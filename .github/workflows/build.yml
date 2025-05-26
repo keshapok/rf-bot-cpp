@@ -13,14 +13,33 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Setup MSVC
-        run: choco install visualstudio2022buildtools --yes
+      - name: Install Visual Studio Build Tools
+        run: |
+          choco install visualstudio2022buildtools --yes
+          Write-Output "Visual Studio Build Tools установлены."
+
+      - name: Locate VC directory
+        id: locate_vc
+        shell: powershell
+        run: |
+          $vsPath = "C:\Program Files\Microsoft Visual Studio\2022\BuildTools\VC\Auxiliary\Build\vcvarsall.bat"
+          if (Test-Path $vsPath) {
+            Write-Host "Found vcvarsall.bat at $vsPath"
+            echo "VCPATH=$vsPath" >> $env:GITHUB_ENV
+          } else {
+            Write-Error "vcvarsall.bat не найден!"
+            exit 1
+          }
+
+      - name: Set up MSVC environment
+        shell: cmd
+        run: |
+          call "%VCPATH%" x64
+          cl
 
       - name: Compile EXE
+        shell: cmd
         run: |
-          cd ${{ github.workspace }}
-          cl /EHsc /W4 /nologo /DUNICODE /D_UNICODE main.cpp user32.lib gdi32.lib
-          move main.exe rf-bot.exe
-
-      - name: Print file exists
-        run: dir
+          call "%VCPATH%" x64
+          cd D:\a\rf-bot-cpp\rf-bot-cpp
+          cl /EHsc /W4 /nologo /DUNICODE /D_UNICODE main.cpp user32.lib gdi32.lib /Fe:rf-bot.exe
