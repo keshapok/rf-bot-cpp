@@ -1,4 +1,4 @@
-name: Build RF Bot to EXE
+name: Build RF Bot EXE
 
 on:
   push:
@@ -23,7 +23,7 @@ jobs:
           move main.exe rf-bot.exe
 
       - name: Upload EXE
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v2   # <-- Здесь v2 вместо v3
         with:
           name: rf-bot-exe
           path: rf-bot.exe
