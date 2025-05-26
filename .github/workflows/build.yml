@@ -22,8 +22,5 @@ jobs:
           cl /EHsc /W4 /nologo /DUNICODE /D_UNICODE main.cpp user32.lib gdi32.lib
           move main.exe rf-bot.exe
 
-      - name: Upload EXE
-        uses: actions/upload-artifact@v2   # <-- Здесь v2 вместо v3
-        with:
-          name: rf-bot-exe
-          path: rf-bot.exe
+      - name: Print file exists
+        run: dir
