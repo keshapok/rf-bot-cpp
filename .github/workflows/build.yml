@@ -15,27 +15,29 @@ jobs:
 
       - name: Install Visual Studio Build Tools
         run: |
-          choco install visualstudio2022buildtools --yes
-          Write-Output "Visual Studio Build Tools установлены."
+          choco install visualstudio2022buildtools --package-parameters "--includeRecommended --includeOptional"
+          Write-Output "Build Tools установлены."
 
-      - name: Locate VC directory
-        id: locate_vc
+      - name: Locate vcvarsall.bat
+        id: find_vc
         shell: powershell
         run: |
-          $vsPath = "C:\Program Files\Microsoft Visual Studio\2022\BuildTools\VC\Auxiliary\Build\vcvarsall.bat"
-          if (Test-Path $vsPath) {
-            Write-Host "Found vcvarsall.bat at $vsPath"
-            echo "VCPATH=$vsPath" >> $env:GITHUB_ENV
-          } else {
-            Write-Error "vcvarsall.bat не найден!"
-            exit 1
+          $paths = @(
+            "C:\Program Files\Microsoft Visual Studio\2022\BuildTools\VC\Auxiliary\Build\vcvarsall.bat",
+            "C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Auxiliary\Build\vcvarsall.bat",
+            "C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvarsall.bat"
+          )
+
+          foreach ($path in $paths) {
+            if (Test-Path $path) {
+              echo "VCPATH=$path" >> $env:GITHUB_ENV
+              echo "Найдено: $path"
+              exit 0
+            }
           }
 
-      - name: Set up MSVC environment
-        shell: cmd
-        run: |
-          call "%VCPATH%" x64
-          cl
+          echo "vcvarsall.bat не найден!"
+          exit 1
 
       - name: Compile EXE
         shell: cmd
@@ -43,3 +45,9 @@ jobs:
           call "%VCPATH%" x64
           cd D:\a\rf-bot-cpp\rf-bot-cpp
           cl /EHsc /W4 /nologo /DUNICODE /D_UNICODE main.cpp user32.lib gdi32.lib /Fe:rf-bot.exe
+
+      - name: Upload EXE
+        uses: actions/upload-artifact@v3
+        with:
+          name: rf-bot-exe
+          path: rf-bot.exe
