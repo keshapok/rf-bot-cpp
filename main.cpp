@@ -19,8 +19,6 @@ const Rect MINIMAP_RECT(860, 10, 110, 110); // Примерные координ
 bool bot_active = false;
 bool running = true;
 
-// ================== Функции ==================
-
 // Получаем хендл окна игры
 HWND get_game_window(const string& window_title) {
     return FindWindowA(NULL, window_title.c_str());
@@ -44,18 +42,7 @@ Mat capture_screen(HWND hwnd) {
 
     BitBlt(hdc_mem, 0, 0, width, height, hdc_screen, 0, 0, SRCCOPY);
 
-    BITMAPINFOHEADER bi;
-    bi.biSize = sizeof(BITMAPINFOHEADER);
-    bi.biWidth = width;
-    bi.biHeight = -height;  // Верх вниз головой
-    bi.biPlanes = 1;
-    bi.biBitCount = 32;
-    bi.biCompression = BI_BITFIELDS;
-    bi.biSizeImage = 0;
-
-    DWORD rmask[3] = { 0xFF0000, 0xFF00, 0xFF };
-    memcpy(bi.biBitFields, rmask, 3 * sizeof(DWORD));
-
+    BITMAPINFOHEADER bi = { sizeof(BITMAPINFOHEADER), width, -height, 1, 32, BI_BITFIELDS, 0, 0, 0, 0xFF0000, 0xFF00, 0xFF };
     Mat result(height, width, CV_8UC4);
     GetDIBits(hdc_mem, hbitmap, 0, height, result.data, (BITMAPINFO*)&bi, DIB_RGB_COLORS);
 
@@ -64,7 +51,6 @@ Mat capture_screen(HWND hwnd) {
     DeleteDC(hdc_mem);
     ReleaseDC(NULL, hdc_screen);
 
-    cvtColor(result, result, COLOR_BGRA2BGR);
     return result;
 }
 
@@ -75,18 +61,19 @@ vector<Rect> detect_mobs(Mat frame, Mat& prev_gray) {
     GaussianBlur(gray, gray, Size(11, 11), 0);
 
     vector<Rect> mobs;
-    if (prev_gray.empty()) {
-        prev_gray = gray.clone();
+    static Mat prev;
+    if (prev.empty()) {
+        gray.copyTo(prev);
         return mobs;
     }
 
-    if (gray.size() != prev_gray.size()) {
-        prev_gray = gray.clone();
+    if (gray.size() != prev.size()) {
+        gray.copyTo(prev);
         return mobs;
     }
 
     Mat delta, thresh;
-    absdiff(prev_gray, gray, delta);
+    absdiff(prev, gray, delta);
     threshold(delta, thresh, MOTION_THRESHOLD, 255, THRESH_BINARY);
     dilate(thresh, thresh, Mat());
 
@@ -106,7 +93,7 @@ vector<Rect> detect_mobs(Mat frame, Mat& prev_gray) {
         }
     }
 
-    gray.copyTo(prev_gray);
+    gray.copyTo(prev);
     return mobs;
 }
 
@@ -122,15 +109,16 @@ void attack_mob(Rect mob, HWND hwnd) {
     mouse_event(MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0);
     mouse_event(MOUSEEVENTF_LEFTUP, 0, 0, 0, 0);
 
-    keybd_event(VK_SPACE, 0, 0, 0);     // Нажать Space
-    keybd_event(VK_SPACE, 0, KEYEVENTF_KEYUP, 0); // Отпустить
+    keybd_event(VK_SPACE, 0, 0, 0);
+    keybd_event(VK_SPACE, 0, KEYEVENTF_KEYUP, 0);
+
     cout << "Атака на координаты: (" << target_x << ", " << target_y << ")" << endl;
 }
 
 // Проверка поворота камеры по миникарте
 bool check_camera_rotation(Mat frame) {
-    static Mat last_minimap;
     static bool first_run = true;
+    static Point last_dir;
 
     Mat minimap = frame(MINIMAP_RECT);
     Mat gray_minimap;
@@ -149,16 +137,16 @@ bool check_camera_rotation(Mat frame) {
     Point current_dir(m.m10 / m.m00, m.m01 / m.m00);
 
     if (first_run) {
-        last_minimap = current_dir;
+        last_dir = current_dir;
         first_run = false;
         return false;
     }
 
-    double dx = current_dir.x - last_minimap.x;
-    double dy = current_dir.y - last_minimap.y;
+    double dx = current_dir.x - last_dir.x;
+    double dy = current_dir.y - last_dir.y;
     double distance = sqrt(dx * dx + dy * dy);
 
-    last_minimap = current_dir;
+    last_dir = current_dir;
 
     if (distance > 20) {
         cout << "Вращение камеры превышает допустимый предел. Игнорируем." << endl;
